@@ -1,10 +1,16 @@
 name: Build Android APK
 
-# ✅ INI YANG KURANG - trigger events
+
+# 👇 TAMBAHKAN INI - WAJIB ADA!
 on:
-  push:
+  push:                    # Jalan otomatis saat ada push ke branch tertentu
     branches: [ "main", "master" ]
-  workflow_dispatch:
+  
+  pull_request:            # Jalan saat ada pull request (opsional)
+    branches: [ "main" ]
+  
+  workflow_dispatch:       # Bisa dijalankan manual dari tab Actions
+
 
 jobs:
   build:
