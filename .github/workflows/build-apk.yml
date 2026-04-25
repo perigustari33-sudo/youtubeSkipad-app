@@ -1,28 +1,31 @@
 name: Build Android APK
 on:
   push:
-    branches: [ "main" ]  # Workflow akan berjalan saat ada push ke branch 'main'
+    branches: [ "main" ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ← Tambahkan ini
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Menggunakan server Ubuntu
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # Langkah 1: Mengambil kode dari repository
-
+        uses: actions/checkout@v4
+      
       - name: Set up JDK 17
-        uses: actions/setup-java@v4 # Langkah 2: Menyiapkan Java
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
+      
       - name: Build APK with Gradle
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug # Langkah 3: Menjalankan perintah build
-
+          ./gradlew assembleDebug
+      
       - name: Upload APK
-        uses: actions/upload-artifact@v4 # Langkah 4: Menyimpan file APK yang sudah jadi
+        uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
