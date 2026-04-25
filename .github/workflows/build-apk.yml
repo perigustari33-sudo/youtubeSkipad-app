@@ -1,6 +1,15 @@
+name: Build Android APK
+
+# ✅ INI YANG KURANG - trigger events
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -11,11 +20,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 👇 TAMBAHKAN DI SINI (sebelum build)
       - name: Fix permission
         run: chmod +x gradlew
 
-      # 👇 INI yang menggunakan gradlew (setelah permission di-fix)
       - name: Build APK with Gradle
         run: ./gradlew assembleDebug --no-daemon
 
