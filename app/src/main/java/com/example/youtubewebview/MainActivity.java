@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -36,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private int originalOrientation;
     private FrameLayout fullscreenContainer;
     private PowerManager.WakeLock wakeLock;
+    private boolean isTvDevice = false;
     
     // JavaScript untuk skip iklan
     private final String AD_SKIP_SCRIPT = 
@@ -61,6 +63,21 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // DETEKSI TV DAN ATUR ORIENTASI SEBELUM SET CONTENT VIEW
+        isTvDevice = isAndroidTvDevice();
+        
+        if (isTvDevice) {
+            // Untuk TV: Landscape
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            // Ganti URL ke YouTube TV atau desktop untuk pengalaman lebih baik di TV
+            currentUrl = "https://www.youtube.com/tv";
+        } else {
+            // Untuk HP: Portrait
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            currentUrl = "https://m.youtube.com";
+        }
+        
         setContentView(R.layout.activity_main);
         
         // Setup wake lock untuk menjaga layar tetap menyala
@@ -82,6 +99,15 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "Tidak ada koneksi internet", Toast.LENGTH_LONG).show();
         }
+    }
+    
+    /**
+     * Method untuk mendeteksi apakah perangkat adalah Android TV
+     */
+    private boolean isAndroidTvDevice() {
+        UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
+        return uiModeManager != null && 
+               uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
     }
     
     private void setupWakeLock() {
@@ -120,8 +146,18 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         
-        // User Agent untuk mobile YouTube
-        String userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+        // Set User Agent berdasarkan jenis perangkat
+        String userAgent;
+        if (isTvDevice) {
+            // User Agent untuk TV (desktop style)
+            userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+            // Untuk TV, tampilkan desktop version
+            webSettings.setLoadWithOverviewMode(true);
+            webSettings.setUseWideViewPort(true);
+        } else {
+            // User Agent untuk mobile
+            userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+        }
         webSettings.setUserAgentString(userAgent);
         
         // Enable cookies
@@ -143,8 +179,8 @@ public class MainActivity extends AppCompatActivity {
                 }
                 
                 // Buka link eksternal di browser
-                if (!url.startsWith("https://m.youtube.com") && 
-                    !url.startsWith("https://www.youtube.com")) {
+                if (!url.startsWith("https://www.youtube.com") && 
+                    !url.startsWith("https://m.youtube.com")) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                     return true;
@@ -165,8 +201,10 @@ public class MainActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
                 
-                // Inject JavaScript untuk skip iklan
-                view.evaluateJavascript(AD_SKIP_SCRIPT, null);
+                // Inject JavaScript untuk skip iklan (hanya untuk mobile)
+                if (!isTvDevice) {
+                    view.evaluateJavascript(AD_SKIP_SCRIPT, null);
+                }
                 
                 // Inject CSS untuk menyembunyikan elemen iklan
                 String hideAdsCSS = 
