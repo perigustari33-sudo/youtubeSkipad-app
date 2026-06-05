@@ -1,11 +1,8 @@
 package com.example.youtubewebview;
 
 import android.annotation.SuppressLint;
-import android.app.*; 
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -38,50 +35,18 @@ public class MainActivity extends AppCompatActivity {
     private int originalOrientation;
     private FrameLayout fullscreenContainer;
     private PowerManager.WakeLock wakeLock;
-    private boolean isTvDevice = false;
     
-    // JavaScript untuk skip iklan
+    // JavaScript untuk skip iklan (SESUAI PERMINTAAN, TIDAK DIUBAH)
     private final String AD_SKIP_SCRIPT = 
-        "(function() {" +
-        "    const clear = (() => {" +
-        "        const defined = v => v !== null && v !== undefined;" +
-        "        const timeout = setInterval(() => {" +
-        "            const ad = [...document.querySelectorAll('.ad-showing')][0];" +
-        "            if (defined(ad)) {" +
-        "                const video = document.querySelector('video');" +
-        "                if (defined(video)) {" +
-        "                    video.currentTime = video.duration;" +
-        "                }" +
-        "            }" +
-        "        }, 500);" +
-        "        return function() {" +
-        "            clearTimeout(timeout);" +
-        "        };" +
-        "    })();" +
-        "})();";
+        "const clear = (() => { const defined = v => v !== null && v !== undefined; const timeout = setInterval(() => { const ad = [...document.querySelectorAll('.ad-showing')][0]; if (defined(ad)) { const video = document.querySelector('video'); if (defined(video)) { video.currentTime = video.duration; } } }, 500); return function() { clearTimeout(timeout); } })();";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // DETEKSI TV DAN ATUR ORIENTASI SEBELUM SET CONTENT VIEW
-        isTvDevice = isAndroidTvDevice();
-        
-        if (isTvDevice) {
-            // Untuk TV: Landscape
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-            // Ganti URL ke YouTube TV atau desktop untuk pengalaman lebih baik di TV
-            currentUrl = "https://www.youtube.com/tv";
-        } else {
-            // Untuk HP: Portrait
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-            currentUrl = "https://m.youtube.com";
-        }
-        
         setContentView(R.layout.activity_main);
         
-        // Setup wake lock untuk menjaga layar tetap menyala
+        // Setup wake lock
         setupWakeLock();
         
         // Inisialisasi views
@@ -100,15 +65,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "Tidak ada koneksi internet", Toast.LENGTH_LONG).show();
         }
-    }
-    
-    /**
-     * Method untuk mendeteksi apakah perangkat adalah Android TV
-     */
-    private boolean isAndroidTvDevice() {
-        UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
-        return uiModeManager != null && 
-               uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
     }
     
     private void setupWakeLock() {
@@ -147,18 +103,8 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         
-        // Set User Agent berdasarkan jenis perangkat
-        String userAgent;
-        if (isTvDevice) {
-            // User Agent untuk TV (desktop style)
-            userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-            // Untuk TV, tampilkan desktop version
-            webSettings.setLoadWithOverviewMode(true);
-            webSettings.setUseWideViewPort(true);
-        } else {
-            // User Agent untuk mobile
-            userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
-        }
+        // User Agent untuk mobile
+        String userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
         webSettings.setUserAgentString(userAgent);
         
         // Enable cookies
@@ -173,15 +119,13 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 
-                // Handle YouTube links
                 if (url.contains("youtube.com") || url.contains("youtu.be")) {
                     view.loadUrl(url);
                     return true;
                 }
                 
-                // Buka link eksternal di browser
-                if (!url.startsWith("https://www.youtube.com") && 
-                    !url.startsWith("https://m.youtube.com")) {
+                if (!url.startsWith("https://m.youtube.com") && 
+                    !url.startsWith("https://www.youtube.com")) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                     return true;
@@ -202,29 +146,8 @@ public class MainActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
                 
-                // Inject JavaScript untuk skip iklan (hanya untuk mobile)
-                if (!isTvDevice) {
-                    view.evaluateJavascript(AD_SKIP_SCRIPT, null);
-                }
-                
-                // Inject CSS untuk menyembunyikan elemen iklan
-                String hideAdsCSS = 
-                    "javascript:(function() {" +
-                    "    var style = document.createElement('style');" +
-                    "    style.innerHTML = '" +
-                    "        .ytp-ad-module, .ytp-ad-image-overlay, .ytp-ad-player-overlay, " +
-                    "        .video-ads, .ytp-ad-overlay-container, .ytd-display-ad-renderer, " +
-                    "        .ytd-action-companion-ad-renderer, .ytd-video-masthead-ad-advertiser-info-renderer, " +
-                    "        .ytd-in-feed-ad-layout-renderer, #masthead-ad, .ytd-banner-promo-renderer, " +
-                    "        ytd-compact-promoted-video-renderer, ytd-promoted-sparkles-web-renderer, " +
-                    "        .ytd-display-ad-renderer, .ytd-statement-banner-renderer, " +
-                    "        tp-yt-paper-dialog, ytd-engagement-panel-section-list-renderer[target-id=\"engagement-panel-ads\"] " +
-                    "        { display: none !important; }" +
-                    "    ';" +
-                    "    document.head.appendChild(style);" +
-                    "})();";
-                
-                view.evaluateJavascript(hideAdsCSS, null);
+                // Inject JavaScript untuk skip iklan (script sesuai permintaan, tidak diubah)
+                view.evaluateJavascript(AD_SKIP_SCRIPT, null);
             }
             
             @Override
@@ -256,7 +179,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             
-            // Method untuk fullscreen
             @Override
             public void onShowCustomView(View view, CustomViewCallback callback) {
                 if (customView != null) {
@@ -268,19 +190,15 @@ public class MainActivity extends AppCompatActivity {
                 customView = view;
                 customViewCallback = callback;
                 
-                // Sembunyikan WebView
                 webView.setVisibility(View.GONE);
                 
-                // Tampilkan fullscreen container
                 fullscreenContainer = new FrameLayout(MainActivity.this);
                 fullscreenContainer.setBackgroundColor(getResources().getColor(android.R.color.black));
                 fullscreenContainer.addView(customView);
                 setContentView(fullscreenContainer);
                 
-                // Set orientation ke landscape untuk fullscreen
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
                 
-                // Sembunyikan status bar dan action bar
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().hide();
@@ -293,24 +211,19 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
                 
-                // Kembalikan ke layout awal
                 customView.setVisibility(View.GONE);
                 fullscreenContainer.removeView(customView);
                 customView = null;
                 setContentView(R.layout.activity_main);
                 
-                // Setup ulang views
                 webView = findViewById(R.id.webView);
                 progressBar = findViewById(R.id.progressBar);
                 setupWebView();
                 
-                // Load URL yang sedang dibuka
                 webView.loadUrl(currentUrl);
                 
-                // Kembalikan orientation
                 setRequestedOrientation(originalOrientation);
                 
-                // Tampilkan kembali status bar dan action bar
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().show();
@@ -320,18 +233,15 @@ public class MainActivity extends AppCompatActivity {
                 customViewCallback = null;
             }
             
-            // Method untuk mengizinkan video fullscreen
             @Override
             public void onShowCustomView(View view, int requestedOrientation, CustomViewCallback callback) {
                 onShowCustomView(view, callback);
             }
         });
         
-        // Handle tombol back
         webView.setOnKeyListener((v, keyCode, event) -> {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 if (keyCode == KeyEvent.KEYCODE_BACK && customView != null) {
-                    // Jika fullscreen, keluar dari fullscreen
                     webView.getWebChromeClient().onHideCustomView();
                     return true;
                 } else if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
@@ -356,7 +266,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         if (customView != null) {
-            // Jika dalam mode fullscreen, keluar dari fullscreen
             webView.getWebChromeClient().onHideCustomView();
         } else if (webView.canGoBack()) {
             webView.goBack();
@@ -371,11 +280,9 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.onResume();
         }
-        // Mengaktifkan wake lock saat activity resume
         if (wakeLock != null && !wakeLock.isHeld()) {
-            wakeLock.acquire(10 * 60 * 1000L); // 10 menit timeout
+            wakeLock.acquire(10 * 60 * 1000L);
         }
-        // Alternatif: gunakan flag window
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
     
@@ -385,11 +292,9 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.onPause();
         }
-        // Melepas wake lock saat activity pause untuk hemat baterai
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
         }
-        // Hapus flag keep screen on
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
     
@@ -402,21 +307,5 @@ public class MainActivity extends AppCompatActivity {
             wakeLock.release();
         }
         super.onDestroy();
-    }
-    
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        if (webView != null) {
-            webView.saveState(outState);
-        }
-    }
-    
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        if (webView != null) {
-            webView.restoreState(savedInstanceState);
-        }
     }
 }
